@@ -2,4 +2,6 @@ configs.yml
 generate_oauth_tokens.rb
 images/
 assets/
+card.jpg
+text.txt
 

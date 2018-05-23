@@ -9,16 +9,12 @@ class Pittscard
   include Magick
 
   def initialize
-    @time = Time.now.to_i.to_s
     set_configs
   end
 
   def tweet
     create_pittscard
-    # puts @tweet
-    # puts @tweet.length
-    # puts "See above"
-    @client.update_with_media @tweet, File.new('final.png')
+    @client.update_with_media @tweet, File.new('card.jpg')
   end
 
   def create_pittscard
@@ -27,9 +23,9 @@ class Pittscard
   end
 
   def create_tweet
-    # start_client
-    # @tweet = "text"
-    puts set_phrase
+    start_client
+    set_phrase
+    @tweet = @phrase
   end
 
   def create_image
@@ -37,20 +33,21 @@ class Pittscard
     @card = Image.read(File.join("images", grab_image_of_pittsburgh)).first
     # resize it to 800px wide
     @card = @card.resize(800, (800 * @card.rows) / @card.columns)
+    # darken
+    @card = @card.level(-QuantumRange * 0.25, Magick::QuantumRange * 1.25, 1.0)
     build_caption
-    @card.write("#{@time}-comp.jpg")
+    @card.write("card.jpg")
   end
     
   # private 
   def build_caption
     # get the flag for the pattern
-    flag = Image.read("pittflag.png").first.resize(100, 12)
+    flag = Image.read("pittflag.png").first
     canvas = Image.new(800, @card.rows) { self.background_color = "red" }
     good_caption = false
     pointsize = 50
-    y_offset = 50
-    working_phrase = "This is a phrase that is about 65 characters long or so I hear."
-    # working_phrase = @phrase
+    y_offset = 20
+    working_phrase = @phrase
     until good_caption == true
       text = Draw.new
       text.font_family = "impact"
@@ -58,10 +55,11 @@ class Pittscard
       text.gravity = NorthWestGravity
       text.stroke = "white"
       text.stroke_width = 3
-      text.annotate(canvas, 0,0,10,y_offset, working_phrase){ self.fill = "white"} #_pattern = flag }
+      text.interline_spacing = 0
+      text.annotate(canvas, 0,0,10,y_offset, working_phrase){ self.fill = "white" }
       metrics = text.get_multiline_type_metrics canvas, working_phrase 
-      puts "Trying with #{metrics.width} text width, #{pointsize} pointsize, and #{y_offset} y offset."
-      if metrics.width > 860 && pointsize < 70
+      # puts "Trying with #{metrics.width} text width, #{pointsize} pointsize, and #{y_offset} y offset."
+      if metrics.width > 790 && pointsize < 70
         # too long. Add a newline.
         phrase_length = working_phrase.length
         phrase_array = working_phrase.split " "
@@ -72,13 +70,14 @@ class Pittscard
         first_line.sub!(/ $/, "\n")
         first_line = first_line + phrase_array.join(" ")
         working_phrase = first_line
-      elsif metrics.width < 760 && pointsize < 120
+      elsif metrics.width < 740 && pointsize < 120
         # too short. Increase pointsize.
         pointsize = pointsize + 5
-        y_offset = y_offset + 10
+        y_offset = y_offset + 5
+        # y_offset = 1.1 * pointsize
       else
         good_caption = true
-        text.annotate(@card, 0, 0, 10, 50, working_phrase){ self.fill_pattern = flag }
+        text.annotate(@card, 0, 0, 10, y_offset, working_phrase){ self.fill_pattern = flag }
       end
     end
   end
@@ -104,10 +103,10 @@ class Pittscard
   end
 
   def search_twitter
-    #@client.search('"Pittsburgh is"', { result_type: "recent" }).map{ |tweet| tweet.full_text }
-    results = []
-    File.readlines("text.txt").each { |f| results << f.strip }
-    results
+    @client.search('"Pittsburgh is"', { result_type: "recent" }).map{ |tweet| tweet.full_text }
+    # results = []
+    # File.readlines("text.txt").each { |f| results << f.strip }
+    # results
   end
 
   def grab_image_of_pittsburgh
@@ -117,9 +116,8 @@ class Pittscard
     list_of_pictures = JSON.parse(HTTParty.get("https://en.wikipedia.org/w/api.php?action=opensearch&format=json&namespace=6&search=pittsburgh&limit=500").body).last.select{|url| url !~ /(svg|tif)$/i}.select{|url| url !~ /logo/i}
     # Pick one of the remaining 450 or so images and download it.
     photo_url = get_photo_from_wiki(list_of_pictures.sample)
-    puts photo_url
     extension = photo_url.match(/\w*$/)[0]
-    filename = "orig-pittsburgh-#{@time}.#{extension}"
+    filename = "orig-pittsburgh-#{Time.now.to_i}.#{extension}"
     File.open("images/#{filename}", "wb") do |file|
       file.write open(photo_url).read
     end
@@ -158,4 +156,4 @@ class Pittscard
 end
 
 card = Pittscard.new
-card.create_pittscard
+card.tweet
