@@ -6,3 +6,5 @@ gem 'rmagick'
 gem 'twitter'
 gem 'oauth' # Only needed when reseeding the access token to Twitter
 gem 'httparty'
+gem 'nokogiri'
+
