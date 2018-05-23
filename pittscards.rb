@@ -1,8 +1,9 @@
 require 'RMagick'
 require 'twitter'
 require 'yaml'
-require 'openuri'
+require 'open-uri'
 require 'httparty'
+require 'nokogiri'
 
 class Pittscard
 
@@ -38,17 +39,23 @@ class Pittscard
     # Pull 500 images from Wikipedia associated w/ Pittsburgh
     # and filter out the ones end in "svg" or "tif" and the ones
     # that have "logo" in their names. Those will be less funny.
-    list_of_pictures = JSON.parse(HTTParty.get('https://en.wikipedia.org/w/api.php?action=opensearch&format=json&namespace=6&search=pittsburgh&limit=500').body).last.select{|url| url !~ /(svg|tif)$/i}.select{|url| url !~ /logo/i}
+    list_of_pictures = JSON.parse(HTTParty.get("https://en.wikipedia.org/w/api.php?action=opensearch&format=json&namespace=6&search=pittsburgh&limit=500").body).last.select{|url| url !~ /(svg|tif)$/i}.select{|url| url !~ /logo/i}
     # Pick one of the remaining 450 or so images and download it.
-    photo_url = list_of_pictures.sample
+    photo_url = get_photo_from_wiki(list_of_pictures.sample)
+    puts photo_url
     extension = photo_url.match(/\w*$/)[0]
     filename = "orig-pittsburgh-#{@time}.#{extension}"
-    open(photo_url) do |f|
-      File.open(filename, "wb") do |file|
-        file.puts f.read
-      end
+    File.open("images/#{filename}", "wb") do |file|
+      file.write open(photo_url).read
     end
     filename
+  end
+
+  def get_photo_from_wiki(url)
+    # Wiki makes a page out of the file, so we need to get the file's url
+    wiki_page = Nokogiri::HTML open(url)
+    # Then get the link from the .fullMedia div
+    wiki_page.at_css(".fullMedia").at_css("a")["href"].sub(/^/, "https:")
   end
 
   def get_blacklist
@@ -74,3 +81,6 @@ class Pittscard
   end
 
 end
+
+card = Pittscard.new
+card.create_image
