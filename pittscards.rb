@@ -1,4 +1,4 @@
-require 'RMagick'
+require 'rmagick'
 require 'twitter'
 require 'yaml'
 require 'open-uri'
