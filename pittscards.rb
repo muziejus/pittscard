@@ -6,6 +6,7 @@ require 'httparty'
 require 'nokogiri'
 
 class Pittscard
+  include Magick
 
   def initialize
     @time = Time.now.to_i.to_s
@@ -32,11 +33,56 @@ class Pittscard
   end
 
   def create_image
-    original_photo = grab_image_of_pittsburgh
-
+    # get the saved image of Pittsburgh
+    @card = Image.read(File.join("images", grab_image_of_pittsburgh)).first
+    # resize it to 800px wide
+    @card = @card.resize(800, (800 * @card.rows) / @card.columns)
+    build_caption
+    @card.write("#{@time}-comp.jpg")
   end
     
   # private 
+  def build_caption
+    # get the flag for the pattern
+    flag = Image.read("pittflag.png").first.resize(100, 12)
+    canvas = Image.new(800, @card.rows) { self.background_color = "red" }
+    good_caption = false
+    pointsize = 50
+    y_offset = 50
+    working_phrase = "This is a phrase that is about 65 characters long or so I hear."
+    # working_phrase = @phrase
+    until good_caption == true
+      text = Draw.new
+      text.font_family = "impact"
+      text.pointsize = pointsize
+      text.gravity = NorthWestGravity
+      text.stroke = "white"
+      text.stroke_width = 3
+      text.annotate(canvas, 0,0,10,y_offset, working_phrase){ self.fill = "white"} #_pattern = flag }
+      metrics = text.get_multiline_type_metrics canvas, working_phrase 
+      puts "Trying with #{metrics.width} text width, #{pointsize} pointsize, and #{y_offset} y offset."
+      if metrics.width > 860 && pointsize < 70
+        # too long. Add a newline.
+        phrase_length = working_phrase.length
+        phrase_array = working_phrase.split " "
+        first_line = ""
+        until first_line.length > 0.5 * phrase_length
+          first_line = first_line + phrase_array.shift + " "
+        end
+        first_line.sub!(/ $/, "\n")
+        first_line = first_line + phrase_array.join(" ")
+        working_phrase = first_line
+      elsif metrics.width < 760 && pointsize < 120
+        # too short. Increase pointsize.
+        pointsize = pointsize + 5
+        y_offset = y_offset + 10
+      else
+        good_caption = true
+        text.annotate(@card, 0, 0, 10, 50, working_phrase){ self.fill_pattern = flag }
+      end
+    end
+  end
+
   def set_phrase
     search_results = search_twitter
     # Now refine the results. Strip anything that doesn't have "Pittsburgh is" in it
