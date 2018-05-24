@@ -50,7 +50,12 @@ class Pittscard
     working_phrase = @phrase
     until good_caption == true
       text = Draw.new
-      text.font_family = "impact"
+      if File.file? "Impact.ttf"
+        text.font = "Impact.ttf"
+      else
+        text.font_family = "impact"
+      end
+      text.font_weight = BoldWeight
       text.pointsize = pointsize
       text.gravity = NorthWestGravity
       text.stroke = "white"
