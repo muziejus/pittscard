@@ -9,21 +9,27 @@ class Pittscard
   include Magick
 
   def initialize
+    # load in and set configurations
     set_configs
   end
 
   def tweet
+    # generate a pittscard and tweet it as a media attachment
     create_pittscard
     @client.update_with_media @tweet, File.new('card.jpg')
   end
 
   def create_pittscard
+    # generate the text
     create_tweet
+    # generate the image
     create_image
   end
 
   def create_tweet
+    # start up twitter
     start_client
+    # establish the phrase for the bot
     set_phrase
     @tweet = @phrase
   end
@@ -43,18 +49,23 @@ class Pittscard
   def build_caption
     # get the flag for the pattern
     flag = Image.read("pittflag.png").first
+    # start a fake image just to size the text
     canvas = Image.new(800, @card.rows) { self.background_color = "red" }
     good_caption = false
     pointsize = 50
     y_offset = 20
     working_phrase = @phrase
+    # iterate with different font sizes and adding line breaks until
+    # everything fits nicely.
     until good_caption == true
       text = Draw.new
+      # Choose Impact font either from the system or locally.
       if File.file? "Impact.ttf"
         text.font = "Impact.ttf"
       else
         text.font_family = "impact"
       end
+      # set the various text parameters
       text.font_weight = BoldWeight
       text.pointsize = pointsize
       text.gravity = NorthWestGravity
@@ -63,15 +74,16 @@ class Pittscard
       text.interline_spacing = 0
       text.annotate(canvas, 0,0,10,y_offset, working_phrase){ self.fill = "white" }
       metrics = text.get_multiline_type_metrics canvas, working_phrase 
-      # puts "Trying with #{metrics.width} text width, #{pointsize} pointsize, and #{y_offset} y offset."
       if metrics.width > 790 && pointsize < 70
         # too long. Add a newline.
         phrase_length = working_phrase.length
         phrase_array = working_phrase.split " "
         first_line = ""
+        # get to about the halfway point
         until first_line.length > 0.5 * phrase_length
           first_line = first_line + phrase_array.shift + " "
         end
+        # Add a newline
         first_line.sub!(/ $/, "\n")
         first_line = first_line + phrase_array.join(" ")
         working_phrase = first_line
@@ -79,8 +91,8 @@ class Pittscard
         # too short. Increase pointsize.
         pointsize = pointsize + 5
         y_offset = y_offset + 5
-        # y_offset = 1.1 * pointsize
       else
+        # we've got a good caption, so add it to the real image.
         good_caption = true
         text.annotate(@card, 0, 0, 10, y_offset, working_phrase){ self.fill_pattern = flag }
       end
@@ -109,6 +121,7 @@ class Pittscard
 
   def search_twitter
     @client.search('"Pittsburgh is"', { result_type: "recent" }).map{ |tweet| tweet.full_text }
+    # # don't actually search twitter. Use a local file of phrases.
     # results = []
     # File.readlines("text.txt").each { |f| results << f.strip }
     # results
@@ -160,5 +173,6 @@ class Pittscard
 
 end
 
+# Run the thing.
 card = Pittscard.new
 card.tweet
